@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.10)
 
 # Define: -DBENCHMARK_INVERSION_CHAINS  for full inversion chain benchmarks.
 
@@ -27,8 +27,9 @@ find_package(Boost COMPONENTS unit_test_framework program_options REQUIRED)
 find_package(jbms-utility REQUIRED)
 find_package(jbms-array_view REQUIRED)
 find_package(jbms-openssl REQUIRED)
-find_package(boost-endian REQUIRED)
+#find_package(ZLIB REQUIRED)
 
+set(OPENSSL_LIBS "${OPENSSL_LDFLAGS} -lz -ldl")
 
 enable_testing()
 
@@ -61,9 +62,8 @@ include_directories(
   ${jbms-utility_INCLUDE_DIRS}
   ${jbms-array_view_INCLUDE_DIRS}
   ${jbms-openssl_INCLUDE_DIRS}
-  ${boost-endian_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
-  ${OPENSSL_INCLUDE_DIRS}
+  ${OPENSSL_INCLUDEDIR}
   )
 
 include_directories("${PROJECT_SOURCE_DIR}/src")
@@ -106,6 +106,7 @@ function(benchmark_binary_field_core_operations)
   set(gen "${PROJECT_SOURCE_DIR}/python/generate_binary_field_core_benchmark.py")
   set(gen_deps "${gen}")
 
+  message("test_name: ${test_name}")
   add_custom_command(
     OUTPUT "${bench_cpp_out}"
     COMMAND mkdir -p "${CMAKE_CURRENT_BINARY_DIR}/src"
@@ -114,7 +115,7 @@ function(benchmark_binary_field_core_operations)
     )
 
   add_executable("${test_name}" "${bench_cpp_out}")
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES})
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS})
   add_arch_flags("${test_name}")
   set(result "benchmark_results/${test_name}")
   set(result_target "benchmark_results__${test_name}")
@@ -127,7 +128,7 @@ function(benchmark_binary_field_core_operations)
     
     # Skip dependency on the benchmark executable, to avoid excessive regeneration of the results when the code is rebuilt
     # Delete the results to regenerate them
-    #DEPENDS "${test_name}"
+    DEPENDS "${test_name}"
     )
 
   add_custom_target(
@@ -169,14 +170,15 @@ function(benchmark_binary_field field_name field_header_basename)
     )
 
   add_executable("${test_name}" "${bench_cpp_out}" ${_bench_arg_DEPENDENCIES})
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES})
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS})
   target_link_libraries("${test_name}" ${field_header_basename})
-  add_dependencies(benchmarks "${test_name}")  
+  add_dependencies(benchmarks "${test_name}" )  
+
 endfunction()
 
 function(add_code_generator name)
   add_executable("${name}" "${CMAKE_CURRENT_SOURCE_DIR}/src/generate/${name}.cpp")
-  target_link_libraries("${name}" ${OPENSSL_LIBRARIES} ${Boost_PROGRAM_OPTIONS_LIBRARY})
+  target_link_libraries("${name}" ${OPENSSL_LIBS} ${Boost_PROGRAM_OPTIONS_LIBRARY})
 endfunction()
 
 add_code_generator("generate_binary_field_code")
@@ -205,6 +207,7 @@ function(define_binary_field_inversion_chain_options)
   get_modulus_with_underscores(modulus_with_underscores ${ARGN})
   set(field_name "GF2_${modulus_with_underscores}")
 
+  message("field_name: ${field_name}")
   # Inverse pareto frontier generation
   foreach(suffix "" "_minimum_length")
     set(gen_inv_options "${PROJECT_SOURCE_DIR}/python/generate_binary_field_inversion_chain${suffix}_options.py")
@@ -260,7 +263,7 @@ function(define_base_binary_field_library field_name suffix chain_data)
   set(obj_lib ${field_name}${suffix})
 
   add_library(${obj_lib} STATIC ${cpp_out})
-  target_link_libraries(${obj_lib} ${OPENSSL_LIBRARIES})
+  target_link_libraries(${obj_lib} ${OPENSSL_LIBS})
   add_arch_flags("${obj_lib}")
 
   set(test_name "test_${field_name}${suffix}")
@@ -274,7 +277,7 @@ function(define_base_binary_field_library field_name suffix chain_data)
     )
 
   add_executable("${test_name}" "${test_cpp_out}")
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${obj_lib})
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} ${obj_lib})
   set_property(TARGET "${test_name}" PROPERTY COMPILE_DEFINITIONS BOOST_TEST_MAIN BOOST_TEST_DYN_LINK)
 
   add_test("${test_name}" ${RUN_BENCHMARK} "./${test_name}")
@@ -380,7 +383,7 @@ function(define_binary_field_quadratic_extension m)
     )
 
   add_executable("${test_name}" "${test_cpp_out}")
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} "${obj_lib}")
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} "${obj_lib}")
   set_property(TARGET "${test_name}" PROPERTY COMPILE_DEFINITIONS BOOST_TEST_MAIN BOOST_TEST_DYN_LINK)
 
   add_test("${test_name}" ${RUN_BENCHMARK} "./${test_name}")
@@ -414,7 +417,7 @@ function(define_binary_elliptic_curve_test_and_benchmark curve_name)
     )
 
   add_executable("${test_name}" "${test_cpp_out}")
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} "${obj_lib}")
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY} "${obj_lib}")
   set_property(TARGET "${test_name}" PROPERTY COMPILE_DEFINITIONS BOOST_TEST_MAIN BOOST_TEST_DYN_LINK)
 
   add_test("${test_name}" ${RUN_BENCHMARK} "./${test_name}")
@@ -434,7 +437,7 @@ function(define_binary_elliptic_curve_test_and_benchmark curve_name)
     )
 
   add_executable("${test_name}" "${bench_cpp_out}")
-  target_link_libraries("${test_name}" ${OPENSSL_LIBRARIES} "${obj_lib}")
+  target_link_libraries("${test_name}" ${OPENSSL_LIBS} "${obj_lib}")
   add_dependencies(benchmarks "${test_name}")  
 
 endfunction()
@@ -512,7 +515,7 @@ function(define_ecmh curve_name hash_name )
 
     add_executable("${test_name}" "${test_cpp_out}")
     target_link_libraries("${test_name}"
-      ${OPENSSL_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+      ${OPENSSL_LIBS} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
       "${hash_name}"
       "ec_${curve_name}"
       )
@@ -533,7 +536,7 @@ function(define_ecmh curve_name hash_name )
 
     add_executable("${bench_name}" "${bench_cpp_out}")
     target_link_libraries("${bench_name}"
-      ${OPENSSL_LIBRARIES}
+      ${OPENSSL_LIBS}
       "${hash_name}"
       "ec_${curve_name}"
       )
@@ -558,7 +561,7 @@ function(define_simple_multiset_hash name hash_name)
 
   add_executable("${test_name}" "${test_cpp_out}")
   target_link_libraries("${test_name}"
-    ${OPENSSL_LIBRARIES} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+    ${OPENSSL_LIBS} ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
     "${hash_name}"
     )
   set_property(TARGET "${test_name}" PROPERTY COMPILE_DEFINITIONS BOOST_TEST_MAIN BOOST_TEST_DYN_LINK)
@@ -578,7 +581,7 @@ function(define_simple_multiset_hash name hash_name)
 
   add_executable("${bench_name}" "${bench_cpp_out}")
   target_link_libraries("${bench_name}"
-    ${OPENSSL_LIBRARIES}
+    ${OPENSSL_LIBS}
     "${hash_name}"
     )
   add_dependencies(benchmarks "${bench_name}")  
@@ -632,7 +635,7 @@ define_standard_binary_elliptic_curve(sect571k1 ${mod571}) # NIST/SECG curve ove
 define_standard_binary_elliptic_curve(sect571r1 ${mod571}) # NIST/SECG curve over a 571 bit binary field
 
 add_executable("benchmark_mont_mul" "${CMAKE_CURRENT_SOURCE_DIR}/src/test/binary_field/benchmark_mont_mul.cpp")
-target_link_libraries("benchmark_mont_mul" ${OPENSSL_LIBRARIES})
+target_link_libraries("benchmark_mont_mul" ${OPENSSL_LIBS})
 
 
 foreach(hash blake2s blake2b)

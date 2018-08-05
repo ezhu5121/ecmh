@@ -2,7 +2,7 @@
 #define HEADER_GUARD_67a22dc87b7f39b632dff69bae99e5c4
 
 // http://www.ecrypt.eu.org/ebats/cpucycles.html
-
+#include <cmath>
 #include <iostream>
 #include <iomanip>
 #include <stdint.h>
@@ -210,7 +210,7 @@ struct BenchmarkHelper {
   }
 
   bool overhead_is_okay() const {
-    return result_overhead.median * 10 <= ((int64_t(result.median - result_overhead.median)));
+    return (int64_t)result_overhead.median * 10 <= ((int64_t(result.median - result_overhead.median)));
   }
 };
 
